@@ -1,0 +1,69 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build ESP32 Fingerprint Project",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Upload ESP32 Fingerprint Project",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"--target",
+				"upload"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Upload Fixed Version",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"--target",
+				"upload"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Upload Clean Template Reader",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"--target",
+				"upload"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Upload Menu Version",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"--target",
+				"upload"
+			],
+			"group": "build"
+		},
+		{
+			"label": "Upload List All Templates Version",
+			"type": "shell",
+			"command": "C:\\Users\\Josh\\.platformio\\penv\\Scripts\\platformio.exe",
+			"args": [
+				"run",
+				"--target",
+				"upload"
+			],
+			"group": "build"
+		}
+	]
+}
