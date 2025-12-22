@@ -1,20 +1,19 @@
+  /*
+    Arduino Mega I2C Slave - listens on address 0x08 and prints received messages
+    SDA -> 20, SCL -> 21 on Mega (hardware I2C pins)
+    Make sure both boards share GND.
+  */
   #include <Arduino.h>
   #include <Wire.h>
   #include <SoftwareSerial.h>
-  #include <EEPROM.h>
+  #include "secrets.h"
 
   const uint8_t SLAVE_ADDR = 0x08;
-  
-  // EEPROM addresses for persistent storage
-  const int EEPROM_WATER_RELAY_STATE = 0;  // Address 0 for water relay state
-  const byte EEPROM_MAGIC_BYTE = 0xA5;     // Magic byte to verify valid EEPROM data
-  const int EEPROM_MAGIC_ADDR = 1;         // Address 1 for magic byte
   
   // SIM800L module setup
   #define SIM800L_TX 18  // Mega TX1 -> SIM800L RX
   #define SIM800L_RX 19  // Mega RX1 -> SIM800L TX
   #define SIM800L_RST 7  // Reset pin (optional)
-  const String PHONE_NUMBER = "+639300944967";
   
   // Use Hardware Serial1 for SIM800L (pins 18,19)
   #define sim800l Serial1
@@ -52,10 +51,12 @@
 
   // Dedicated water relay
   const int WATER_RELAY_PIN = 52;
-  const bool WATER_RELAY_ACTIVE_LOW = false; 
   bool waterRelayInitialized = false;
-  bool waterRelayState = false; 
-  const int WATER_SENSOR_PIN = 8; // wired to float/wet sensor; uses INPUT (HIGH = wet)
+  bool waterRelayState = false; // false = OFF, true = ON
+  // Water sensor input: when dry, water relay must remain OFF regardless of commands.
+  // Choose a free digital pin on Mega; change as needed for your wiring.
+  // Note: using INPUT (no internal pullup). Sensor should drive pin HIGH when WET, LOW when DRY.
+  const int WATER_SENSOR_PIN = 48; // wired to float/wet sensor; uses INPUT (HIGH = wet)
   bool waterSensorInitialized = false;
   bool waterSensorWet = false; // true = wet, false = dry
   bool waterRequestedState = false; // last requested desired state from commands
@@ -64,28 +65,6 @@
 
   // Forward declaration for receiveEvent function
   void receiveEvent(int howMany);
-
-  // EEPROM Functions for Water Relay State Persistence
-  void saveWaterRelayState(bool state) {
-    EEPROM.write(EEPROM_WATER_RELAY_STATE, state ? 1 : 0);
-    EEPROM.write(EEPROM_MAGIC_ADDR, EEPROM_MAGIC_BYTE);
-    Serial.print(F("Saved water relay state to EEPROM: "));
-    Serial.println(state ? "ON" : "OFF");
-  }
-  
-  bool loadWaterRelayState() {
-    // Check if EEPROM has valid data
-    if (EEPROM.read(EEPROM_MAGIC_ADDR) != EEPROM_MAGIC_BYTE) {
-      Serial.println(F("No valid EEPROM data found, using default state (OFF)"));
-      saveWaterRelayState(false); // Initialize with default state
-      return false;
-    }
-    
-    bool savedState = (EEPROM.read(EEPROM_WATER_RELAY_STATE) == 1);
-    Serial.print(F("Loaded water relay state from EEPROM: "));
-    Serial.println(savedState ? "ON" : "OFF");
-    return savedState;
-  }
 
   // SIM800L Functions
   void readAndPrintResponse() {
@@ -270,13 +249,7 @@
     // Lazy init water relay
     if (!waterRelayInitialized) {
       pinMode(WATER_RELAY_PIN, OUTPUT);
-      
-      // Load saved state from EEPROM on first initialization
-      bool savedState = loadWaterRelayState();
-      waterRequestedState = savedState; // Restore the requested state
-      on = savedState; // Use the saved state for this call
-      
-      digitalWrite(WATER_RELAY_PIN, WATER_RELAY_ACTIVE_LOW ? HIGH : LOW);
+      digitalWrite(WATER_RELAY_PIN, RELAY_ACTIVE_LOW ? HIGH : LOW);
       waterRelayInitialized = true;
       waterRelayState = false;
       Serial.print(F("Initialized water relay pin: ")); Serial.println(WATER_RELAY_PIN);
@@ -304,11 +277,8 @@
     }
 
     waterRelayState = actualOn;
-    digitalWrite(WATER_RELAY_PIN, (actualOn ^ WATER_RELAY_ACTIVE_LOW) ? HIGH : LOW);
+    digitalWrite(WATER_RELAY_PIN, (actualOn ^ RELAY_ACTIVE_LOW) ? HIGH : LOW);
     Serial.print(F("Water relay (pin ")); Serial.print(WATER_RELAY_PIN); Serial.print(F(") set to ")); Serial.println(actualOn ? "ON" : "OFF");
-    
-    // Save the requested state to EEPROM (not the actual state, since sensor might prevent it)
-    saveWaterRelayState(on);
   }
 
   // Poll water sensor and re-evaluate water relay when sensor changes
@@ -481,9 +451,6 @@
     while (!Serial) ;
     Serial.println("Mega I2C Slave starting...");
 
-    // Initialize EEPROM (Arduino Mega has 4KB EEPROM)
-    Serial.println(F("📀 Initializing EEPROM..."));
-    
     // Initialize SIM800L first
     initSIM800L();
     
@@ -500,19 +467,13 @@
 
     // Ensure unlock relay is ON by default
     applyUnlockRelay(true);
-    
-    // Initialize water sensor (optional pin init). Uses INPUT; sensor should drive HIGH when wet.
-    pinMode(WATER_SENSOR_PIN, INPUT);
-    waterSensorInitialized = true;
-    waterSensorWet = (digitalRead(WATER_SENSOR_PIN) == HIGH);
-    Serial.print(F("Water sensor initial (pin " )); Serial.print(WATER_SENSOR_PIN); Serial.print(F(") wet=")); Serial.println(waterSensorWet ? "true" : "false");
-    
-    // Initialize water relay with saved state from EEPROM
-    Serial.println(F("🔄 Restoring water relay state from memory..."));
-    bool savedWaterState = loadWaterRelayState();
-    applyWaterRelay(savedWaterState);
-    
-    Serial.println("=== MEGA SLAVE READY ===");
+  // Initialize water sensor (optional pin init). Uses INPUT; sensor should drive HIGH when wet.
+  pinMode(WATER_SENSOR_PIN, INPUT);
+  waterSensorInitialized = true;
+  waterSensorWet = (digitalRead(WATER_SENSOR_PIN) == HIGH);
+  Serial.print(F("Water sensor initial (pin " )); Serial.print(WATER_SENSOR_PIN); Serial.print(F(") wet=")); Serial.println(waterSensorWet ? "true" : "false");
+  
+  Serial.println("=== MEGA SLAVE READY ===");
   }
 
   void loop() {
